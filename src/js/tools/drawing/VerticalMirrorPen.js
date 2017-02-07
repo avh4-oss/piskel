@@ -6,6 +6,7 @@
 
     this.toolId = 'tool-vertical-mirror-pen';
     this.helpText = 'Vertical Mirror pen';
+    this.shortcut = pskl.service.keyboard.Shortcuts.TOOL.MIRROR_PEN;
 
     this.tooltipDescriptors = [
       {key : 'ctrl', description : 'Use horizontal axis'},
@@ -15,40 +16,31 @@
 
   pskl.utils.inherit(ns.VerticalMirrorPen, ns.SimplePen);
 
-  ns.VerticalMirrorPen.prototype.backupPreviousPositions_ = function () {
-    this.backupPreviousCol = this.previousCol;
-    this.backupPreviousRow = this.previousRow;
-  };
-
-  ns.VerticalMirrorPen.prototype.restorePreviousPositions_ = function () {
-    this.previousCol = this.backupPreviousCol;
-    this.previousRow = this.backupPreviousRow;
-  };
-
   /**
    * @override
    */
-  ns.VerticalMirrorPen.prototype.applyToolAt = function(col, row, color, frame, overlay, event) {
-    this.superclass.applyToolAt.call(this, col, row, color, frame, overlay);
-    this.backupPreviousPositions_();
+  ns.VerticalMirrorPen.prototype.applyToolAt = function(col, row, frame, overlay, event) {
+    var color = this.getToolColor();
+    this.drawUsingPenSize(color, col, row, frame, overlay);
 
     var mirroredCol = this.getSymmetricCol_(col, frame);
     var mirroredRow = this.getSymmetricRow_(row, frame);
 
     var hasCtrlKey = pskl.utils.UserAgent.isMac ?  event.metaKey : event.ctrlKey;
     if (!hasCtrlKey) {
-      this.superclass.applyToolAt.call(this, mirroredCol, row, color, frame, overlay);
+      this.drawUsingPenSize(color, mirroredCol, row, frame, overlay);
     }
 
     if (event.shiftKey || hasCtrlKey) {
-      this.superclass.applyToolAt.call(this, col, mirroredRow, color, frame, overlay);
+      this.drawUsingPenSize(color, col, mirroredRow, frame, overlay);
     }
 
     if (event.shiftKey) {
-      this.superclass.applyToolAt.call(this, mirroredCol, mirroredRow, color, frame, overlay);
+      this.drawUsingPenSize(color, mirroredCol, mirroredRow, frame, overlay);
     }
 
-    this.restorePreviousPositions_();
+    this.previousCol = col;
+    this.previousRow = row;
   };
 
   ns.VerticalMirrorPen.prototype.getSymmetricCol_ = function(col, frame) {

@@ -49,16 +49,22 @@
   };
 
   ns.CursorCoordinatesController.prototype.onCursorMoved_ = function (event, x, y) {
-    this.coordinates = {x:x, y:y};
+    this.coordinates = {
+      x : x,
+      y : y
+    };
     this.redraw();
   };
 
   ns.CursorCoordinatesController.prototype.onDragStart_ = function (event, x, y) {
-    this.origin = {x:x, y:y};
+    this.origin = {
+      x : x,
+      y : y
+    };
     this.redraw();
   };
 
-  ns.CursorCoordinatesController.prototype.onDragEnd_ = function (event, x, y) {
+  ns.CursorCoordinatesController.prototype.onDragEnd_ = function (event) {
     this.origin = null;
     this.redraw();
   };

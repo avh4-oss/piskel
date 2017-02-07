@@ -13,11 +13,13 @@
   };
 
   ns.HslRgbColorPicker.prototype.init = function () {
-    var isChromeOrFirefox = pskl.utils.UserAgent.isChrome || pskl.utils.UserAgent.isFirefox;
-    var changeEvent = isChromeOrFirefox ? 'input' : 'change';
+    var isFirefox = pskl.utils.UserAgent.isFirefox;
+    var isChrome = pskl.utils.UserAgent.isChrome;
+
+    var changeEvent = (isChrome || isFirefox) ? 'input' : 'change';
     this.container.addEventListener(changeEvent, this.onPickerChange_.bind(this));
     this.container.addEventListener('keydown', this.onKeydown_.bind(this));
-    this.container.addEventListener('focusout', this.onBlur_.bind(this));
+    this.container.addEventListener('blur', this.onBlur_.bind(this), true);
 
     this.spectrumEl = this.container.querySelector('.color-picker-spectrum');
 
@@ -36,6 +38,9 @@
     this.spectrumEl = null;
   };
 
+  /**
+   * Handle change event on all color inputs
+   */
   ns.HslRgbColorPicker.prototype.onPickerChange_ = function (evt) {
     var target = evt.target;
     if (target.dataset.dimension) {
@@ -47,6 +52,9 @@
     }
   };
 
+  /**
+   * Handle up/down arrow keydown on text inputs
+   */
   ns.HslRgbColorPicker.prototype.onKeydown_ = function (evt) {
     var target = evt.target;
 
@@ -90,7 +98,7 @@
         this.setColor(color);
       }
     } else if (model === 'hex') {
-      if (/^#([a-f0-9]{3}) {1,2}$/i.test(value)) {
+      if (/^#([a-f0-9]{3}){1,2}$/i.test(value)) {
         this.setColor(value);
       }
     }

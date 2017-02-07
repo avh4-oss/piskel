@@ -7,8 +7,8 @@
 
   ns.ColorSwap = function() {
     this.toolId = 'tool-colorswap';
-
     this.helpText = 'Paint all pixels of the same color';
+    this.shortcut = pskl.service.keyboard.Shortcuts.TOOL.COLORSWAP;
 
     this.tooltipDescriptors = [
       {key : 'ctrl', description : 'Apply to all layers'},
@@ -21,37 +21,45 @@
   /**
    * @override
    */
-  ns.ColorSwap.prototype.applyToolAt = function(col, row, color, frame, overlay, event) {
+  ns.ColorSwap.prototype.applyToolAt = function(col, row, frame, overlay, event) {
     if (frame.containsPixel(col, row)) {
-      var sampledColor = frame.getPixel(col, row);
+      var oldColor = frame.getPixel(col, row);
+      var newColor = this.getToolColor();
 
       var allLayers = pskl.utils.UserAgent.isMac ?  event.metaKey : event.ctrlKey;
       var allFrames = event.shiftKey;
+      this.swapColors_(oldColor, newColor, allLayers, allFrames);
 
-      this.swapColors(sampledColor, color, allLayers, allFrames);
-
-      $.publish(Events.PISKEL_SAVE_STATE, {
-        type : pskl.service.HistoryService.SNAPSHOT
+      this.raiseSaveStateEvent({
+        allLayers : allLayers,
+        allFrames : allFrames,
+        oldColor : oldColor,
+        newColor : newColor
       });
     }
   };
 
-  ns.ColorSwap.prototype.swapColors = function(oldColor, newColor, allLayers, allFrames) {
-    var swapPixelColor = function (pixelColor, x, y, frame) {
-      if (pixelColor == oldColor) {
-        frame.pixels[x][y] = newColor;
-      }
-    };
-    var currentLayer = pskl.app.piskelController.getCurrentLayer();
+  ns.ColorSwap.prototype.replay = function (frame, replayData) {
+    this.swapColors_(replayData.oldColor, replayData.newColor, replayData.allLayers, replayData.allFrames);
+  };
+
+  ns.ColorSwap.prototype.swapColors_ = function(oldColor, newColor, allLayers, allFrames) {
     var currentFrameIndex = pskl.app.piskelController.getCurrentFrameIndex();
-    pskl.app.piskelController.getPiskel().getLayers().forEach(function (l) {
-      if (allLayers || l === currentLayer) {
-        l.getFrames().forEach(function (f, frameIndex) {
-          if (allFrames || frameIndex === currentFrameIndex) {
-            f.forEachPixel(swapPixelColor);
-            f.version++;
-          }
-        });
+    var layers = allLayers ? pskl.app.piskelController.getLayers() : [pskl.app.piskelController.getCurrentLayer()];
+    layers.forEach(function (layer) {
+      var frames = allFrames ? layer.getFrames() : [layer.getFrameAt(currentFrameIndex)];
+      frames.forEach(function (frame) {
+        this.applyToolOnFrame_(frame, oldColor, newColor);
+      }.bind(this));
+    }.bind(this));
+  };
+
+  ns.ColorSwap.prototype.applyToolOnFrame_ = function (frame, oldColor, newColor) {
+    oldColor = pskl.utils.colorToInt(oldColor);
+    newColor = pskl.utils.colorToInt(newColor);
+    frame.forEachPixel(function (color, col, row) {
+      if (color !== null && color == oldColor) {
+        frame.setPixel(col, row, newColor);
       }
     });
   };

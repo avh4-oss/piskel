@@ -5,17 +5,6 @@
   width: 25%;
 }
 
-.resize-content-checkbox {
-  margin-left: 0;
-}
-
-.resize-ratio-checkbox,
-.resize-smooth-checkbox {
-  vertical-align: -2px;
-  margin-left: 0;
-}
-
-
 /*****************/
 /* ANCHOR WIDGET */
 /*****************/
@@ -55,8 +44,12 @@
   border-color: #555 !important;
 }
 
+.resize-origin-option:hover {
+  border : 3px solid white;
+}
+
 .resize-origin-option.selected {
-  border : 3px solid gold;
+  border : 3px solid var(--highlight-color);
 }
 
 .resize-origin-option:before {
@@ -72,7 +65,7 @@
   content: '';
   width: 4px;
   height: 4px;
-  background: gold;
+  background: var(--highlight-color);
 }
 
 .disabled .resize-origin-option.selected:before {
@@ -92,23 +85,23 @@
 }
 
 .resize-origin-option[data-neighbor="bottom"]:before {
-  border-top-color: gold;
+  border-top-color: var(--highlight-color);
   margin-left: -4px;
 }
 
 .resize-origin-option[data-neighbor="left"]:before {
-  border-right-color: gold;
+  border-right-color: var(--highlight-color);
   margin-top: -4px;
   margin-left: -6px;
 }
 
 .resize-origin-option[data-neighbor="top"]:before {
-  border-bottom-color: gold;
+  border-bottom-color: var(--highlight-color);
   margin-top: -6px;
   margin-left: -4px;
 }
 
 .resize-origin-option[data-neighbor="right"]:before {
-  border-left-color: gold;
+  border-left-color: var(--highlight-color);
   margin-top: -4px;
 }

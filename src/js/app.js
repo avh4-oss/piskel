@@ -19,8 +19,9 @@
       this.shortcutService.init();
 
       var size = pskl.UserSettings.get(pskl.UserSettings.DEFAULT_SIZE);
+      var fps = Constants.DEFAULT.FPS;
       var descriptor = new pskl.model.piskel.Descriptor('New Piskel', '');
-      var piskel = new pskl.model.Piskel(size.width, size.height, descriptor);
+      var piskel = new pskl.model.Piskel(size.width, size.height, fps, descriptor);
 
       var layer = new pskl.model.Layer('Layer 1');
       var frame = new pskl.model.Frame(size.width, size.height);
@@ -35,8 +36,16 @@
       this.piskelController.init();
 
       this.paletteImportService = new pskl.service.palette.PaletteImportService();
+      this.paletteImportService.init();
+
       this.paletteService = new pskl.service.palette.PaletteService();
       this.paletteService.addDynamicPalette(new pskl.service.palette.CurrentColorsPalette());
+
+      this.selectedColorsService = new pskl.service.SelectedColorsService();
+      this.selectedColorsService.init();
+
+      this.mouseStateService = new pskl.service.MouseStateService();
+      this.mouseStateService.init();
 
       this.paletteController = new pskl.controller.PaletteController();
       this.paletteController.init();
@@ -44,9 +53,7 @@
       this.currentColorsService = new pskl.service.CurrentColorsService(this.piskelController);
       this.currentColorsService.init();
 
-      this.palettesListController = new pskl.controller.PalettesListController(
-        this.paletteController,
-        this.currentColorsService);
+      this.palettesListController = new pskl.controller.PalettesListController(this.currentColorsService);
       this.palettesListController.init();
 
       this.cursorCoordinatesController = new pskl.controller.CursorCoordinatesController(this.piskelController);
@@ -54,7 +61,6 @@
 
       this.drawingController = new pskl.controller.DrawingController(
         this.piskelController,
-        this.paletteController,
         $('#drawing-canvas-container'));
       this.drawingController.init();
 
@@ -90,7 +96,7 @@
       this.selectionManager = new pskl.selection.SelectionManager(this.piskelController);
       this.selectionManager.init();
 
-      this.historyService = new pskl.service.HistoryService(this.corePiskelController);
+      this.historyService = new pskl.service.HistoryService(this.piskelController);
       this.historyService.init();
 
       this.notificationController = new pskl.controller.NotificationController();
@@ -105,19 +111,30 @@
       this.canvasBackgroundController = new pskl.controller.CanvasBackgroundController();
       this.canvasBackgroundController.init();
 
-      this.localStorageService = new pskl.service.LocalStorageService(this.piskelController);
+      this.localStorageService = new pskl.service.storage.LocalStorageService(this.piskelController);
       this.localStorageService.init();
 
-      this.desktopStorageService = new pskl.service.DesktopStorageService(this.piskelController);
+      this.fileDownloadStorageService = new pskl.service.storage.FileDownloadStorageService(this.piskelController);
+      this.fileDownloadStorageService.init();
+
+      this.desktopStorageService = new pskl.service.storage.DesktopStorageService(this.piskelController);
       this.desktopStorageService.init();
+
+      this.galleryStorageService = new pskl.service.storage.GalleryStorageService(this.piskelController);
+      this.galleryStorageService.init();
+
+      this.storageService = new pskl.service.storage.StorageService(this.piskelController);
+      this.storageService.init();
+
+      this.importService = new pskl.service.ImportService(this.piskelController);
+      this.importService.init();
 
       this.imageUploadService = new pskl.service.ImageUploadService();
       this.imageUploadService.init();
 
-      this.cheatsheetService = new pskl.service.keyboard.CheatsheetService();
-      this.cheatsheetService.init();
-
-      this.savedStatusService = new pskl.service.SavedStatusService(this.piskelController);
+      this.savedStatusService = new pskl.service.SavedStatusService(
+        this.piskelController,
+        this.historyService);
       this.savedStatusService.init();
 
       this.backupService = new pskl.service.BackupService(this.piskelController);
@@ -126,27 +143,37 @@
       this.beforeUnloadService = new pskl.service.BeforeUnloadService(this.piskelController);
       this.beforeUnloadService.init();
 
-      this.fileDropperService = new pskl.service.FileDropperService(
+      this.headerController = new pskl.controller.HeaderController(
         this.piskelController,
-        document.querySelector('#drawing-canvas-container'));
+        this.savedStatusService);
+      this.headerController.init();
+
+      this.penSizeService = new pskl.service.pensize.PenSizeService();
+      this.penSizeService.init();
+
+      this.penSizeController = new pskl.controller.PenSizeController();
+      this.penSizeController.init();
+
+      this.fileDropperService = new pskl.service.FileDropperService(this.piskelController);
       this.fileDropperService.init();
 
-      if (this.isAppEngineVersion) {
-        this.storageService = new pskl.service.AppEngineStorageService(this.piskelController);
-      } else {
-        this.storageService = new pskl.service.GithubStorageService(this.piskelController);
-      }
-      this.storageService.init();
+      this.userWarningController = new pskl.controller.UserWarningController(this.piskelController);
+      this.userWarningController.init();
 
-      var drawingLoop = new pskl.rendering.DrawingLoop();
-      drawingLoop.addCallback(this.render, this);
-      drawingLoop.start();
+      this.performanceReportService = new pskl.service.performance.PerformanceReportService(
+        this.piskelController,
+        this.currentColorsService);
+      this.performanceReportService.init();
+
+      this.drawingLoop = new pskl.rendering.DrawingLoop();
+      this.drawingLoop.addCallback(this.render, this);
+      this.drawingLoop.start();
 
       this.initTooltips_();
 
       var piskelData = this.getPiskelInitData_();
       if (piskelData && piskelData.piskel) {
-        this.loadPiskel_(piskelData.piskel, piskelData.descriptor, piskelData.fps);
+        this.loadPiskel_(piskelData);
       }
 
       if (pskl.devtools) {
@@ -155,17 +182,27 @@
 
       if (pskl.utils.Environment.detectNodeWebkit() && pskl.utils.UserAgent.isMac) {
         var gui = require('nw.gui');
-        var mb = new gui.Menu({type:'menubar'});
+        var mb = new gui.Menu({type : 'menubar'});
         mb.createMacBuiltin('Piskel');
         gui.Window.get().menu = mb;
       }
+
+      if (pskl.utils.UserAgent.isUnsupported()) {
+        $.publish(Events.DIALOG_DISPLAY, {
+          dialogId : 'unsupported-browser'
+        });
+      }
     },
 
-    loadPiskel_ : function (serializedPiskel, descriptor, fps) {
+    loadPiskel_ : function (piskelData) {
+      var serializedPiskel = piskelData.piskel;
       pskl.utils.serialization.Deserializer.deserialize(serializedPiskel, function (piskel) {
-        piskel.setDescriptor(descriptor);
         pskl.app.piskelController.setPiskel(piskel);
-        pskl.app.previewController.setFPS(fps);
+        $.publish(Events.PISKEL_SAVED);
+        if (piskelData.descriptor) {
+          // Backward compatibility for v2 or older
+          piskel.setDescriptor(piskelData.descriptor);
+        }
       });
     },
 
@@ -191,11 +228,14 @@
     },
 
     getFirstFrameAsPng : function () {
-      var firstFrame = this.piskelController.getFrameAt(0);
-      var canvasRenderer = new pskl.rendering.CanvasRenderer(firstFrame, 1);
-      canvasRenderer.drawTransparentAs('rgba(0,0,0,0)');
-      var firstFrameCanvas = canvasRenderer.render();
-      return firstFrameCanvas.toDataURL('image/png');
+      var frame = pskl.utils.LayerUtils.mergeFrameAt(this.piskelController.getLayers(), 0);
+      var canvas;
+      if (frame instanceof pskl.model.frame.RenderedFrame) {
+        canvas = pskl.utils.CanvasUtils.createFromImage(frame.getRenderedFrame());
+      } else {
+        canvas = pskl.utils.FrameUtils.toImage(frame);
+      }
+      return canvas.toDataURL('image/png');
     },
 
     getFramesheetAsPng : function () {

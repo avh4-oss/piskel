@@ -2,7 +2,7 @@
   var ns = $.namespace('pskl.tools.drawing');
   /**
    * Abstract shape tool class, parent to all shape tools (rectangle, circle).
-   * Shape tools should override only the draw_ method
+   * Shape tools should override only the draw method
    */
   ns.ShapeTool = function() {
     // Shapes's first point coordinates (set in applyToolAt)
@@ -16,46 +16,56 @@
 
   pskl.utils.inherit(ns.ShapeTool, ns.BaseTool);
 
+  ns.ShapeTool.prototype.supportsDynamicPenSize = function() {
+    return true;
+  };
+
   /**
    * @override
    */
-  ns.ShapeTool.prototype.applyToolAt = function(col, row, color, frame, overlay, event) {
+  ns.ShapeTool.prototype.applyToolAt = function(col, row, frame, overlay, event) {
     $.publish(Events.DRAG_START, [col, row]);
     this.startCol = col;
     this.startRow = row;
 
     // Drawing the first point of the rectangle in the fake overlay canvas:
-    overlay.setPixel(col, row, color);
+    var penSize = pskl.app.penSizeService.getPenSize();
+    this.draw(col, row, this.getToolColor(), overlay, penSize);
   };
 
-  ns.ShapeTool.prototype.moveToolAt = function(col, row, color, frame, overlay, event) {
+  ns.ShapeTool.prototype.moveToolAt = function(col, row, frame, overlay, event) {
     var coords = this.getCoordinates_(col, row, event);
     $.publish(Events.CURSOR_MOVED, [coords.col, coords.row]);
 
     overlay.clear();
+    var color = this.getToolColor();
     if (color == Constants.TRANSPARENT_COLOR) {
       color = Constants.SELECTION_TRANSPARENT_COLOR;
     }
 
     // draw in overlay
-    this.draw_(coords.col, coords.row, color, overlay);
+    var penSize = pskl.app.penSizeService.getPenSize();
+    this.draw(coords.col, coords.row, color, overlay, penSize);
   };
 
   /**
    * @override
    */
-  ns.ShapeTool.prototype.releaseToolAt = function(col, row, color, frame, overlay, event) {
+  ns.ShapeTool.prototype.releaseToolAt = function(col, row, frame, overlay, event) {
     overlay.clear();
     var coords = this.getCoordinates_(col, row, event);
-    this.draw_(coords.col, coords.row, color, frame);
+    var color = this.getToolColor();
+    var penSize = pskl.app.penSizeService.getPenSize();
+    this.draw(coords.col, coords.row, color, frame, penSize);
 
-    $.publish(Events.DRAG_END, [coords.col, coords.row]);
+    $.publish(Events.DRAG_END);
     this.raiseSaveStateEvent({
       col : coords.col,
       row : coords.row,
       startCol : this.startCol,
       startRow : this.startRow,
-      color : color
+      color : color,
+      penSize : penSize
     });
   };
 
@@ -65,7 +75,7 @@
   ns.ShapeTool.prototype.replay = function(frame, replayData) {
     this.startCol = replayData.startCol;
     this.startRow = replayData.startRow;
-    this.draw_(replayData.col, replayData.row, replayData.color, frame);
+    this.draw(replayData.col, replayData.row, replayData.color, frame, replayData.penSize);
   };
 
   /**
@@ -106,6 +116,6 @@
     };
   };
 
-  ns.ShapeTool.prototype.draw_ = Constants.ABSTRACT_FUNCTION;
+  ns.ShapeTool.prototype.draw = Constants.ABSTRACT_FUNCTION;
 
 })();

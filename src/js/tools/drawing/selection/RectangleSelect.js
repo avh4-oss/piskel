@@ -1,36 +1,25 @@
 /**
- * @provide pskl.tools.drawing.RectangleSelect
+ * @provide pskl.tools.drawing.selection.RectangleSelect
  *
  * @require pskl.utils
  */
 (function() {
-  var ns = $.namespace('pskl.tools.drawing');
+  var ns = $.namespace('pskl.tools.drawing.selection');
 
   ns.RectangleSelect = function() {
+    ns.AbstractDragSelect.call(this);
+
     this.toolId = 'tool-rectangle-select';
-
     this.helpText = 'Rectangle selection';
+    this.shortcut = pskl.service.keyboard.Shortcuts.TOOL.RECTANGLE_SELECT;
 
-    ns.BaseSelect.call(this);
-    this.hasSelection = false;
   };
 
-  pskl.utils.inherit(ns.RectangleSelect, ns.BaseSelect);
+  pskl.utils.inherit(ns.RectangleSelect, ns.AbstractDragSelect);
 
-  /**
-   * @override
-   */
-  ns.RectangleSelect.prototype.onSelectStart_ = function (col, row, color, frame, overlay) {
-    if (this.hasSelection) {
-      this.hasSelection = false;
-      overlay.clear();
-      $.publish(Events.SELECTION_DISMISSED);
-    } else {
-      this.hasSelection = true;
-      $.publish(Events.DRAG_START, [col, row]);
-      // Drawing the first point of the rectangle in the fake overlay canvas:
-      overlay.setPixel(col, row, color);
-    }
+  /** @override */
+  ns.RectangleSelect.prototype.onDragSelectStart_ = function (col, row) {
+    $.publish(Events.DRAG_START, [col, row]);
   };
 
   /**
@@ -39,21 +28,17 @@
    * the current mouse coordiinate in sprite.
    * @override
    */
-  ns.RectangleSelect.prototype.onSelect_ = function (col, row, color, frame, overlay) {
-    if (this.hasSelection) {
-      overlay.clear();
-      this.selection = new pskl.selection.RectangularSelection(
-        this.startCol, this.startRow, col, row);
-      $.publish(Events.SELECTION_CREATED, [this.selection]);
-      this.drawSelectionOnOverlay_(overlay);
-    }
+  ns.RectangleSelect.prototype.onDragSelect_ = function (col, row, frame, overlay) {
+    overlay.clear();
+    this.selection = new pskl.selection.RectangularSelection(this.startCol, this.startRow, col, row);
+    $.publish(Events.SELECTION_CREATED, [this.selection]);
+    this.drawSelectionOnOverlay_(overlay);
   };
 
-  ns.RectangleSelect.prototype.onSelectEnd_ = function (col, row, color, frame, overlay) {
-    if (this.hasSelection) {
-      this.onSelect_(col, row, color, frame, overlay);
-      $.publish(Events.DRAG_END, [col, row]);
-    }
+  /** @override */
+  ns.RectangleSelect.prototype.onDragSelectEnd_ = function (col, row, frame, overlay) {
+    this.onSelect_(col, row, frame, overlay);
+    $.publish(Events.DRAG_END);
   };
 
 })();

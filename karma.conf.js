@@ -6,7 +6,12 @@ module.exports = function(config) {
   var mapToSrcFolder = function (path) {return ['src', path].join('/');};
 
   var piskelScripts = require('./src/piskel-script-list.js').scripts.map(mapToSrcFolder);
+  piskelScripts.push('test/js/testutils/**/*.js');
   piskelScripts.push('test/js/**/*.js');
+
+  // Polyfill for Object.assign (missing in PhantomJS)
+  piskelScripts.push('./node_modules/phantomjs-polyfill-object-assign/object-assign-polyfill.js');
+
   config.set({
 
     // base path that will be used to resolve all patterns (eg. files, exclude)
@@ -19,7 +24,9 @@ module.exports = function(config) {
 
 
     // list of files / patterns to load in the browser
-    files: piskelScripts,
+    files: piskelScripts.concat([
+      './node_modules/promise-polyfill/promise.js'
+    ]),
 
 
     // list of files to exclude

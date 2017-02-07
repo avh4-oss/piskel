@@ -22,17 +22,19 @@
     color:white;">
       <span style="top:45%">Loading Piskel ...</span>
   </div>
-  <script type="text/javascript" src="js/lib/iframeLoader-0.1.0.js"></script>
+  <!--standalone-start-->
+  @@include('templates/debug-header.html', {})
+  <!--standalone-end-->
 
   <!-- the comment below indicates the beginning of markup reused by the editor integrated in piskelapp.com -->
   <!-- do not delete, do not move :) -->
   <!--body-main-start-->
   <div id="main-wrapper" class="main-wrapper">
-    <iframe src="templates/drawing-tools.html" onload="iframeloader.onLoad(event)" data-iframe-loader="display"></iframe>
+    @@include('templates/drawing-tools.html', {})
 
     <div id="column-wrapper" class="column-wrapper">
       <div class='column left-column'>
-        <iframe src="templates/frames-list.html" onload="iframeloader.onLoad(event)" data-iframe-loader="display"></iframe>
+        @@include('templates/frames-list.html', {})
       </div>
 
       <div class='column main-column'>
@@ -42,24 +44,19 @@
       </div>
 
       <div class="column right-column">
-        <iframe src="templates/preview.html" onload="iframeloader.onLoad(event)" data-iframe-loader="display"></iframe>
-        <iframe src="templates/layers-list.html" onload="iframeloader.onLoad(event)" data-iframe-loader="display"></iframe>
-        <iframe src="templates/transformations.html" onload="iframeloader.onLoad(event)" data-iframe-loader="display"></iframe>
-        <iframe src="templates/palettes-list.html" onload="iframeloader.onLoad(event)" data-iframe-loader="display"></iframe>
+        @@include('templates/preview.html', {})
+        @@include('templates/layers-list.html', {})
+        @@include('templates/transformations.html', {})
+        @@include('templates/palettes-list.html', {})
         <div class="pull-bottom cursor-coordinates"></div>
       </div>
     </div>
 
     <div id="application-action-section" data-pskl-controller="settings" class="sticky-section right-sticky-section">
       <div class="sticky-section-wrap">
-        <iframe src="templates/settings.html" onload="iframeloader.onLoad(event)" data-iframe-loader="display"></iframe>
+        @@include('templates/settings.html', {})
         <div class="drawer vertical-centerer">
           <div class="drawer-content" id="drawer-container">
-            <iframe src="templates/settings/application.html" onload="iframeloader.onLoad(event)" data-iframe-loader="store"></iframe>
-            <iframe src="templates/settings/resize.html" onload="iframeloader.onLoad(event)" data-iframe-loader="store"></iframe>
-            <iframe src="templates/settings/save.html" onload="iframeloader.onLoad(event)"  data-iframe-loader="store"></iframe>
-            <iframe src="templates/settings/import.html" onload="iframeloader.onLoad(event)"  data-iframe-loader="store"></iframe>
-            <iframe src="templates/settings/export.html" onload="iframeloader.onLoad(event)"  data-iframe-loader="store"></iframe>
           </div>
         </div>
       </div>
@@ -68,17 +65,39 @@
 
   <div id="dialog-container-wrapper">
     <div id="dialog-container">
-      <iframe src="templates/dialogs/create-palette.html" onload="iframeloader.onLoad(event)"  data-iframe-loader="store"></iframe>
-      <iframe src="templates/dialogs/import-image.html" onload="iframeloader.onLoad(event)"  data-iframe-loader="store"></iframe>
-      <iframe src="templates/dialogs/browse-local.html" onload="iframeloader.onLoad(event)"  data-iframe-loader="store"></iframe>
     </div>
   </div>
 
-  <iframe src="templates/cheatsheet.html" onload="iframeloader.onLoad(event)" data-iframe-loader="display"></iframe>
-  <iframe src="templates/misc-templates.html" onload="iframeloader.onLoad(event)" data-iframe-loader="display"></iframe>
-  <iframe src="templates/popup-preview.html" onload="iframeloader.onLoad(event)" data-iframe-loader="display"></iframe>
+  @@include('templates/misc-templates.html', {})
+  @@include('templates/popup-preview.html', {})
 
-  <script type="text/javascript" src="piskel-boot.js"></script>
+  <span class="cheatsheet-link icon-common-keyboard-gold"
+        rel="tooltip" data-placement="right" title="Keyboard shortcuts">&nbsp;</span>
+  <div class="performance-link icon-common-warning-red"
+       rel="tooltip" data-placement="left" title="Performance problem detected, learn more.">&nbsp;</div>
+
+  <!-- dialogs partials -->
+  @@include('templates/dialogs/create-palette.html', {})
+  @@include('templates/dialogs/import-image.html', {})
+  @@include('templates/dialogs/browse-local.html', {})
+  @@include('templates/dialogs/cheatsheet.html', {})
+  @@include('templates/dialogs/performance-info.html', {})
+  @@include('templates/dialogs/unsupported-browser.html', {})
+
+  <!-- settings-panel partials -->
+  @@include('templates/settings/application.html', {})
+  @@include('templates/settings/resize.html', {})
+  @@include('templates/settings/save.html', {})
+  @@include('templates/settings/import.html', {})
+  @@include('templates/settings/export.html', {})
+  @@include('templates/settings/export/png.html', {})
+  @@include('templates/settings/export/gif.html', {})
+  @@include('templates/settings/export/zip.html', {})
+  @@include('templates/settings/export/misc.html', {})
+
+  <script type="text/javascript">
+    @@include('piskel-boot.js', {})
+  </script>
   <!--body-main-end-->
   <!-- the comment above indicates the end of the markup reused by the editor integrated in piskelapp.com -->
   <!-- do not delete, do not move :) -->

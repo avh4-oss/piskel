@@ -2,39 +2,40 @@
   var ns = $.namespace('pskl.controller');
 
   ns.TransformationsController = function () {
-
-    var toDescriptor = function (id, shortcut, instance) {
-      return {id:id, shortcut:shortcut, instance:instance};
-    };
-
     this.tools = [
-      toDescriptor('flip', '', new pskl.tools.transform.Flip()),
-      toDescriptor('rotate', '', new pskl.tools.transform.Rotate()),
-      toDescriptor('clone', '', new pskl.tools.transform.Clone())
+      new pskl.tools.transform.Flip(),
+      new pskl.tools.transform.Rotate(),
+      new pskl.tools.transform.Clone(),
+      new pskl.tools.transform.Center()
     ];
 
-    this.toolIconRenderer = new pskl.tools.IconMarkupRenderer();
+    this.toolIconBuilder = new pskl.tools.ToolIconBuilder();
   };
 
   ns.TransformationsController.prototype.init = function () {
     var container = document.querySelector('.transformations-container');
     this.toolsContainer = container.querySelector('.tools-wrapper');
-    container.addEventListener('click', this.onTransformationClick.bind(this));
+    container.addEventListener('click', this.onTransformationClick_.bind(this));
     this.createToolsDom_();
   };
 
-  ns.TransformationsController.prototype.onTransformationClick = function (evt) {
-    var toolId = evt.target.dataset.toolId;
+  ns.TransformationsController.prototype.applyTool = function (toolId, evt) {
     this.tools.forEach(function (tool) {
-      if (tool.instance.toolId === toolId) {
-        tool.instance.apply(evt);
+      if (tool.toolId === toolId) {
+        $.publish(Events.TRANSFORMATION_EVENT, [toolId, evt]);
+        tool.applyTransformation(evt);
       }
     }.bind(this));
   };
 
+  ns.TransformationsController.prototype.onTransformationClick_ = function (evt) {
+    var toolId = evt.target.dataset.toolId;
+    this.applyTool(toolId, evt);
+  };
+
   ns.TransformationsController.prototype.createToolsDom_ = function() {
     var html = this.tools.reduce(function (p, tool) {
-      return p + this.toolIconRenderer.render(tool.instance, tool.shortcut, 'left');
+      return p + this.toolIconBuilder.createIcon(tool, 'left');
     }.bind(this), '');
     this.toolsContainer.innerHTML = html;
   };

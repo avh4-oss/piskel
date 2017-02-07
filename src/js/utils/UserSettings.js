@@ -7,10 +7,17 @@
     DEFAULT_SIZE : 'DEFAULT_SIZE',
     CANVAS_BACKGROUND : 'CANVAS_BACKGROUND',
     SELECTED_PALETTE : 'SELECTED_PALETTE',
-    TILED_PREVIEW : 'TILED_PREVIEW',
+    SEAMLESS_OPACITY : 'SEAMLESS_OPACITY',
+    SEAMLESS_MODE : 'SEAMLESS_MODE',
+    PREVIEW_SIZE : 'PREVIEW_SIZE',
     ONION_SKIN : 'ONION_SKIN',
     LAYER_PREVIEW : 'LAYER_PREVIEW',
-
+    LAYER_OPACITY : 'LAYER_OPACITY',
+    EXPORT_SCALE: 'EXPORT_SCALE',
+    EXPORT_TAB: 'EXPORT_TAB',
+    PEN_SIZE : 'PEN_SIZE',
+    RESIZE_SETTINGS: 'RESIZE_SETTINGS',
+    COLOR_FORMAT: 'COLOR_FORMAT',
     KEY_TO_DEFAULT_VALUE_MAP_ : {
       'GRID_WIDTH' : 0,
       'MAX_FPS' : 24,
@@ -20,9 +27,21 @@
       },
       'CANVAS_BACKGROUND' : 'lowcont-dark-canvas-background',
       'SELECTED_PALETTE' : Constants.CURRENT_COLORS_PALETTE_ID,
-      'TILED_PREVIEW' : false,
+      'SEAMLESS_OPACITY' : 0.30,
+      'SEAMLESS_MODE' : false,
+      'PREVIEW_SIZE' : 'original',
       'ONION_SKIN' : false,
-      'LAYER_PREVIEW' : true
+      'LAYER_OPACITY' : 0.2,
+      'LAYER_PREVIEW' : true,
+      'EXPORT_SCALE' : 1,
+      'EXPORT_TAB' : 'gif',
+      'PEN_SIZE' : 1,
+      'RESIZE_SETTINGS': {
+        maintainRatio : true,
+        resizeContent : false,
+        origin : 'TOPLEFT'
+      },
+      COLOR_FORMAT: 'hex',
     },
 
     /**
@@ -85,6 +104,10 @@
      * @private
      */
     checkKeyValidity_ : function(key) {
+      if (key.indexOf(pskl.service.keyboard.Shortcut.USER_SETTINGS_PREFIX) === 0) {
+        return true;
+      }
+
       var isValidKey = key in this.KEY_TO_DEFAULT_VALUE_MAP_;
       if (!isValidKey) {
         console.error('UserSettings key <' + key + '> not found in supported keys.');

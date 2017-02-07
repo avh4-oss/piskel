@@ -7,19 +7,15 @@
     this.tooltipDescriptors = [];
   };
 
-  pskl.utils.inherit(ns.Clone, ns.Transform);
+  pskl.utils.inherit(ns.Clone, ns.AbstractTransformTool);
 
-  ns.Clone.prototype.apply = function (evt) {
+  ns.Clone.prototype.applyTool_ = function (altKey, allFrames, allLayers) {
     var ref = pskl.app.piskelController.getCurrentFrame();
     var layer = pskl.app.piskelController.getCurrentLayer();
     layer.getFrames().forEach(function (frame) {
       if (frame !==  ref) {
         frame.setPixels(ref.getPixels());
       }
-    });
-    $.publish(Events.PISKEL_RESET);
-    $.publish(Events.PISKEL_SAVE_STATE, {
-      type : pskl.service.HistoryService.SNAPSHOT
     });
   };
 })();

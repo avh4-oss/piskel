@@ -9,6 +9,10 @@
   ns.Stroke = function() {
     this.toolId = 'tool-stroke';
     this.helpText = 'Stroke tool';
+    this.shortcut = pskl.service.keyboard.Shortcuts.TOOL.STROKE;
+    this.tooltipDescriptors = [
+      {key : 'shift', description : 'Hold shift to draw straight lines'}
+    ];
 
     // Stroke's first point coordinates (set in applyToolAt)
     this.startCol = null;
@@ -17,10 +21,14 @@
 
   pskl.utils.inherit(ns.Stroke, ns.BaseTool);
 
+  ns.Stroke.prototype.supportsDynamicPenSize = function() {
+    return true;
+  };
+
   /**
    * @override
    */
-  ns.Stroke.prototype.applyToolAt = function(col, row, color, frame, overlay, event) {
+  ns.Stroke.prototype.applyToolAt = function(col, row, frame, overlay, event) {
     this.startCol = col;
     this.startRow = row;
 
@@ -33,55 +41,71 @@
 
     // The fake canvas where we will draw the preview of the stroke:
     // Drawing the first point of the stroke in the fake overlay canvas:
-    overlay.setPixel(col, row, color);
+    overlay.setPixel(col, row, this.getToolColor());
   };
 
-  ns.Stroke.prototype.moveToolAt = function(col, row, color, frame, overlay, event) {
+  ns.Stroke.prototype.moveToolAt = function(col, row, frame, overlay, event) {
     overlay.clear();
 
-    // When the user moussemove (before releasing), we dynamically compute the
-    // pixel to draw the line and draw this line in the overlay canvas:
-    var strokePoints = this.getLinePixels_(this.startCol, col, this.startRow, row);
-
-    // Drawing current stroke:
-    for (var i = 0; i < strokePoints.length; i++) {
-
-      if (color == Constants.TRANSPARENT_COLOR) {
-        // When mousemoving the stroke tool, we draw in the canvas overlay above the drawing canvas.
-        // If the stroke color is transparent, we won't be
-        // able to see it during the movement.
-        // We set it to a semi-opaque white during the tool mousemove allowing to see colors below the stroke.
-        // When the stroke tool will be released, It will draw a transparent stroke,
-        // eg deleting the equivalent of a stroke.
-        color = Constants.SELECTION_TRANSPARENT_COLOR;
-      }
-      overlay.setPixel(strokePoints[i].col, strokePoints[i].row, color);
+    var penSize = pskl.app.penSizeService.getPenSize();
+    var isStraight = event.shiftKey;
+    var color = this.getToolColor();
+    if (color == Constants.TRANSPARENT_COLOR) {
+      // When mousemoving the stroke tool, we draw in the canvas overlay above the drawing canvas.
+      // If the stroke color is transparent, we won't be
+      // able to see it during the movement.
+      // We set it to a semi-opaque white during the tool mousemove allowing to see colors below the stroke.
+      // When the stroke tool will be released, It will draw a transparent stroke,
+      // eg deleting the equivalent of a stroke.
+      color = Constants.SELECTION_TRANSPARENT_COLOR;
     }
+
+    this.draw_(col, row, color, overlay, penSize, isStraight);
   };
 
   /**
    * @override
    */
-  ns.Stroke.prototype.releaseToolAt = function(col, row, color, frame, overlay, event) {
+  ns.Stroke.prototype.releaseToolAt = function(col, row, frame, overlay, event) {
+    var penSize = pskl.app.penSizeService.getPenSize();
+    var isStraight = event.shiftKey;
+    var color = this.getToolColor();
+
     // The user released the tool to draw a line. We will compute the pixel coordinate, impact
     // the model and draw them in the drawing canvas (not the fake overlay anymore)
-    var strokePoints = this.getLinePixels_(this.startCol, col, this.startRow, row);
-    for (var i = 0; i < strokePoints.length; i++) {
-      // Change model:
-      frame.setPixel(strokePoints[i].col, strokePoints[i].row, color);
-    }
+    this.draw_(col, row, color, frame, penSize, isStraight);
+
     // For now, we are done with the stroke tool and don't need an overlay anymore:
     overlay.clear();
 
     this.raiseSaveStateEvent({
-      pixels : strokePoints,
-      color : color
+      col : col,
+      row : row,
+      startCol : this.startCol,
+      startRow : this.startRow,
+      color : color,
+      penSize : penSize,
+      isStraight : isStraight
+    });
+  };
+
+  ns.Stroke.prototype.draw_ = function (col, row, color, targetFrame, penSize, isStraight) {
+    var linePixels;
+    if (isStraight) {
+      linePixels = pskl.PixelUtils.getUniformLinePixels(this.startCol, col, this.startRow, row);
+    } else {
+      linePixels = pskl.PixelUtils.getLinePixels(col, this.startCol, row, this.startRow);
+    }
+
+    pskl.PixelUtils.resizePixels(linePixels, penSize).forEach(function (point) {
+      targetFrame.setPixel(point[0], point[1], color);
     });
   };
 
   ns.Stroke.prototype.replay = function(frame, replayData) {
-    replayData.pixels.forEach(function (pixel) {
-      frame.setPixel(pixel.col, pixel.row, replayData.color);
-    });
+    this.startCol = replayData.startCol;
+    this.startRow = replayData.startRow;
+    this.draw_(replayData.col, replayData.row, replayData.color, frame, replayData.penSize, replayData.isStraight);
   };
+
 })();

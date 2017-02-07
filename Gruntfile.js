@@ -1,65 +1,61 @@
 module.exports = function(grunt) {
-  var dateFormat = require('dateformat');
-  var now = new Date();
-  var version = '-' + dateFormat(now, "yyyy-mm-dd-hh-MM");
 
-  var mapToSrcFolder = function (path) {
-    return "src/" + path;
+  // Update this variable if you don't want or can't serve on localhost
+  var hostname = 'localhost';
+
+  var PORT = {
+    PROD : 9001,
+    DEV : 9901,
+    TEST : 9991
   };
 
-  var piskelScripts = require('./src/piskel-script-list.js').scripts.map(mapToSrcFolder).filter(function (path) {
+  // create a version based on the build timestamp
+  var dateFormat = require('dateformat');
+  var version = '-' + dateFormat(new Date(), "yyyy-mm-dd-hh-MM");
+
+  /**
+   * Helper to prefix all strings in provided array with the provided path
+   */
+  var prefixPaths = function (paths, prefix) {
+    return paths.map(function (path) {
+      return prefix + path;
+    });
+  };
+
+  // get the list of scripts paths to include
+  var scriptPaths = require('./src/piskel-script-list.js').scripts;
+  var piskelScripts = prefixPaths(scriptPaths, "src/").filter(function (path) {
     return path.indexOf('devtools') === -1;
   });
-  var piskelStyles = require('./src/piskel-style-list.js').styles.map(mapToSrcFolder);
 
-  var mapToCasperFolder = function (path) {
-    return "test/casperjs/" + path;
-  };
+  // get the list of styles paths to include
+  var stylePaths = require('./src/piskel-style-list.js').styles;
+  var piskelStyles = prefixPaths(stylePaths, "src/");
 
-  var casperEnvironments = {
-    'local' : {
-      suite : './test/casperjs/LocalTestSuite.js',
-      delay : 50
-    },
-    'travis' : {
-      suite : './test/casperjs/TravisTestSuite.js',
-      delay : 10000
-    }
-  };
+  // Casper JS tests
+  var casperjsOptions = [
+    '--baseUrl=http://' + hostname + ':' + PORT.TEST,
+    '--mode=?debug',
+    '--verbose=false',
+    '--includes=test/casperjs/integration/include.js',
+    '--log-level=info',
+    '--print-command=false',
+    '--print-file-paths=true',
+  ];
 
-  var getCasperConfig = function (env) {
-    var conf = casperEnvironments[env];
-    var tests = require(conf.suite).tests.map(mapToCasperFolder);
-    return {
-      filesSrc : tests,
-      options : {
-        args : {
-          baseUrl : 'http://localhost:' + '<%= express.test.options.port %>/',
-          mode : '?debug',
-          delay : conf.delay
-        },
-        async : false,
-        direct : false,
-        logLevel : 'info',
-        printCommand : false,
-        printFilePaths : true
-      }
-    };
-  };
+  var integrationTestPaths = require('./test/casperjs/integration/IntegrationSuite.js').tests;
+  var integrationTests = prefixPaths(integrationTestPaths, "test/casperjs/integration/");
 
-  var getExpressConfig = function (source, port, host) {
-    var bases;
-    if (typeof source === 'string') {
-      bases = [source];
-    } else if (Array.isArray(source)) {
-      bases = source;
+  var getConnectConfig = function (base, port, host) {
+    if (typeof base === 'string') {
+      base = [base];
     }
 
     return {
       options: {
         port: port,
-        hostname : host || 'localhost',
-        bases: bases
+        hostname : host,
+        base: base
       }
     };
   };
@@ -69,17 +65,26 @@ module.exports = function(grunt) {
 
   grunt.initConfig({
     clean: {
-      before: ['dest']
+      all: ['dest', 'src/img/icons.png', 'src/css/icons.css'],
+      prod: ['dest/prod', 'dest/tmp'],
+      desktop: ['dest/desktop', 'dest/tmp'],
+      dev: ['dest/dev', 'dest/tmp']
     },
+
+    /**
+     * STYLE CHECKS
+     */
+
     leadingIndent : {
       options: {
         indentation : "spaces"
       },
       css : ['src/css/**/*.css']
     },
+
     jscs : {
       options : {
-        "preset": "google",
+        "config": ".jscsrc",
         "maximumLineLength": 120,
         "requireCamelCaseOrUpperCaseIdentifiers": "ignoreProperties",
         "validateQuoteMarks": { "mark": "'", "escape": true },
@@ -88,6 +93,7 @@ module.exports = function(grunt) {
       },
       js : [ 'src/js/**/*.js' , '!src/js/**/lib/**/*.js' ]
     },
+
     jshint: {
       options: {
         undef : true,
@@ -95,95 +101,116 @@ module.exports = function(grunt) {
         browser : true,
         trailing : true,
         curly : true,
-        globals : {'$':true, 'jQuery' : true, 'pskl':true, 'Events':true, 'Constants':true, 'console' : true, 'module':true, 'require':true, 'Q':true}
+        globals : {'$':true, 'jQuery' : true, 'pskl':true, 'Events':true, 'Constants':true, 'console' : true, 'module':true, 'require':true, 'Q':true, 'Promise': true}
       },
       files: [
+        // Includes
         'Gruntfile.js',
         'package.json',
         'src/js/**/*.js',
-        '!src/js/**/lib/**/*.js' // Exclude lib folder (note the leading !)
+        // Excludes
+        '!src/js/**/lib/**/*.js'
       ]
     },
-    express: {
-      test: getExpressConfig(['src', 'test'], 9991),
-      regular: getExpressConfig('dest', 9001),
-      debug: getExpressConfig(['src', 'test'], 9901)
+
+    /**
+     * SERVERS, BROWSER LAUNCHERS
+     */
+
+    connect: {
+      prod: getConnectConfig('dest/prod', PORT.PROD, hostname),
+      test: getConnectConfig(['dest/dev', 'test'], PORT.TEST, hostname),
+      dev: getConnectConfig(['dest/dev', 'test'], PORT.DEV, hostname)
     },
+
     open : {
-      regular : {
-        path : 'http://localhost:9001/'
+      prod : {
+        path : 'http://' + hostname + ':' + PORT.PROD + '/'
       },
-      debug : {
-        path : 'http://localhost:9901/?debug'
+      dev : {
+        path : 'http://' + hostname + ':' + PORT.DEV + '/?debug'
       }
     },
 
     watch: {
-      scripts: {
+      prod: {
         files: ['src/**/*.*'],
-        tasks: ['merge'],
+        tasks: ['build'],
+        options: {
+          spawn: false
+        }
+      },
+      dev: {
+        files: ['src/**/*.*'],
+        tasks: ['build-dev'],
         options: {
           spawn: false
         }
       }
     },
-    ghost : {
-      'travis' : getCasperConfig('travis'),
-      'local' : getCasperConfig('local')
+
+    /**
+     * BUILD STEPS
+     */
+
+    sprite:{
+      all : {
+        src: 'src/img/icons/**/*.png',
+        retinaSrcFilter: 'src/img/icons/**/*@2x.png',
+        dest: 'src/img/icons.png',
+        retinaDest: 'src/img/icons@2x.png',
+        destCss: 'src/css/icons.css'
+      }
     },
+
     concat : {
       js : {
         options : {
           separator : ';'
         },
         src : piskelScripts,
-        dest : 'dest/js/piskel-packaged' + version + '.js'
+        dest : 'dest/prod/js/piskel-packaged' + version + '.js'
       },
       css : {
         src : piskelStyles,
-        dest : 'dest/css/piskel-style-packaged' + version + '.css'
+        dest : 'dest/tmp/css/piskel-style-packaged' + version + '.css'
       }
     },
+
     uglify : {
       options : {
         mangle : true
       },
       js : {
         files : {
-          'dest/js/piskel-packaged-min.js' : ['dest/js/piskel-packaged' + version + '.js']
+          'dest/tmp/js/piskel-packaged-min.js' : ['dest/prod/js/piskel-packaged' + version + '.js']
         }
       }
     },
+
+    includereplace: {
+      all: {
+        src: 'src/index.html',
+        dest: 'dest/tmp/index.html',
+        options : {
+          globals : {
+            'version' : version
+          }
+        }
+      }
+    },
+
     replace: {
-      main: {
+      // main-partial.html is used when embedded in piskelapp.com
+      mainPartial: {
         options: {
-          patterns: [
-            {
-              match: 'version',
-              replacement: version
-            }
-          ]
-        },
-        files: [
-          {src: ['src/piskel-boot.js'], dest: 'dest/piskel-boot.js'}
-        ]
-      },
-      editor: {
-        options: {
-          patterns: [
-            {
-              match: /templates\//g,
-              replacement: "../templates"+version+"/"
-            },{
-              match: /piskel-boot.js/g,
-              replacement: "../piskel-boot"+version+".js"
-            },{
+          patterns: [{
               match: /^(.|[\r\n])*<!--body-main-start-->/,
-              replacement: "",
+              replacement: "{% raw %}",
               description : "Remove everything before body-main-start comment"
             },{
               match: /<!--body-main-end-->(.|[\r\n])*$/,
-              replacement: "",
+              replacement: "{% endraw %}",
               description : "Remove everything after body-main-end comment"
             },{
               match: /([\r\n])  /g,
@@ -193,69 +220,157 @@ module.exports = function(grunt) {
           ]
         },
         files: [
-          {src: ['src/index.html'], dest: 'dest/piskelapp-partials/main-partial.html'}
+          // src/index.html should already have been moved by the includereplace task
+          {src: ['dest/tmp/index.html'], dest: 'dest/prod/piskelapp-partials/main-partial.html'}
         ]
-      }
-    },
-    copy: {
-      main: {
+      },
+
+      css: {
+        options: {
+          patterns: [{
+            match: /var\(--highlight-color\)/g,
+            replacement: "gold",
+          }]
+        },
+        files: [{
+          src: ['dest/tmp/css/piskel-style-packaged' + version + '.css'],
+          dest: 'dest/prod/css/piskel-style-packaged' + version + '.css'
+        }]
+      },
+      // remove the fake header from the desktop build
+      desktop: {
+        options: {
+          patterns: [{
+              match: /<!--standalone-start-->(?:.|[\r\n])*<!--standalone-end-->/,
+              replacement: "",
+              description : "Remove everything between standalone-start & standalone-end"
+            }
+          ]
+        },
         files: [
-          {src: ['dest/js/piskel-packaged-min.js'], dest: 'dest/js/piskel-packaged-min' + version + '.js'},
-          {src: ['dest/piskel-boot.js'], dest: 'dest/piskel-boot' + version + '.js'},
-          {src: ['src/logo.png'], dest: 'dest/logo.png'},
-          {src: ['src/js/lib/iframeLoader-0.1.0.js'], dest: 'dest/js/lib/iframeLoader-0.1.0.js'},
-          {src: ['src/js/lib/gif/gif.ie.worker.js'], dest: 'dest/js/lib/gif/gif.ie.worker.js'},
-          {expand: true, src: ['img/**'], cwd: 'src/', dest: 'dest/', filter: 'isFile'},
-          {expand: true, src: ['css/fonts/**'], cwd: 'src/', dest: 'dest/', filter: 'isFile'},
-          {expand: true, src: ['**/*.html'], cwd: 'src/', dest: 'dest/', filter: 'isFile'}
+          {src: ['dest/prod/index.html'], dest: 'dest/prod/index.html'}
         ]
       }
     },
+
+    copy: {
+      prod: {
+        files: [
+          // dest/js/piskel-packaged-min.js should have been created by the uglify task
+          {src: ['dest/tmp/js/piskel-packaged-min.js'], dest: 'dest/prod/js/piskel-packaged-min' + version + '.js'},
+          {src: ['dest/tmp/index.html'], dest: 'dest/prod/index.html'},
+          {src: ['src/logo.png'], dest: 'dest/prod/logo.png'},
+          {src: ['src/js/lib/gif/gif.ie.worker.js'], dest: 'dest/prod/js/lib/gif/gif.ie.worker.js'},
+          {expand: true, src: ['img/**'], cwd: 'src/', dest: 'dest/prod/', filter: 'isFile'},
+          {expand: true, src: ['css/fonts/**'], cwd: 'src/', dest: 'dest/prod/', filter: 'isFile'}
+        ]
+      },
+      dev: {
+        files: [
+          // in dev copy everything to dest/dev
+          {src: ['dest/tmp/index.html'], dest: 'dest/dev/index.html'},
+          {src: ['src/piskel-script-list.js'], dest: 'dest/dev/piskel-script-list.js'},
+          {src: ['src/piskel-style-list.js'], dest: 'dest/dev/piskel-style-list.js'},
+          {expand: true, src: ['js/**'], cwd: 'src/', dest: 'dest/dev/', filter: 'isFile'},
+          {expand: true, src: ['css/**'], cwd: 'src/', dest: 'dest/dev/', filter: 'isFile'},
+          {expand: true, src: ['img/**'], cwd: 'src/', dest: 'dest/dev/', filter: 'isFile'},
+        ]
+      }
+    },
+
+    /**
+     * TESTING
+     */
+
     karma: {
       unit: {
         configFile: 'karma.conf.js'
       }
     },
-    nodewebkit: {
-      options: {
-        version : "0.11.5",
-        build_dir: './dest/desktop/', // destination folder of releases.
-        mac: true,
-        win: true,
-        linux32: true,
-        linux64: true
+
+    casperjs : {
+      drawing : {
+        files : {
+          src: ['test/casperjs/DrawingTest.js']
+        },
+        options : {
+          casperjsOptions: casperjsOptions
+        }
       },
-      src: ['./dest/**/*', "./package.json", "!./dest/desktop/"]
+      integration : {
+        files : {
+          src: integrationTests
+        },
+        options : {
+          casperjsOptions: casperjsOptions
+        }
+      }
+    },
+
+    /**
+     * DESKTOP BUILDS
+     */
+
+    nwjs: {
+      windows : {
+        options: {
+          downloadUrl: 'https://dl.nwjs.io/',
+          version : "0.19.4",
+          build_dir: './dest/desktop/', // destination folder of releases.
+          win: true,
+          linux32: true,
+          linux64: true
+        },
+        src: ['./dest/prod/**/*', "./package.json", "!./dest/desktop/"]
+      },
+      macos : {
+        options: {
+          downloadUrl: 'https://dl.nwjs.io/',
+          osx64: true,
+          version : "0.19.4",
+          build_dir: './dest/desktop/'
+        },
+        src: ['./dest/prod/**/*', "./package.json", "!./dest/desktop/"]
+      }
     }
   });
 
-  // Validate
+  // TEST TASKS
+  // Run linting
   grunt.registerTask('lint', ['jscs:js', 'leadingIndent:css', 'jshint']);
-
-  // karma/unit-tests task
+  // Run unit-tests
   grunt.registerTask('unit-test', ['karma']);
+  // Run integration tests
+  grunt.registerTask('integration-test', ['build-dev', 'connect:test', 'casperjs:integration']);
+  // Run linting, unit tests, drawing tests and integration tests
+  grunt.registerTask('test', ['lint', 'unit-test', 'build-dev', 'connect:test', 'casperjs:drawing', 'casperjs:integration']);
 
-  // Validate & Test
-  grunt.registerTask('test-travis', ['lint', 'unit-test', 'express:test', 'ghost:travis']);
-  // Validate & Test (faster version) will NOT work on travis !!
-  grunt.registerTask('test-local', ['lint', 'unit-test', 'express:test', 'ghost:local']);
-  grunt.registerTask('test-local-nolint', ['unit-test', 'express:test', 'ghost:local']);
+  // Run the tests, even if the linting fails
+  grunt.registerTask('test-nolint', ['unit-test', 'build-dev', 'connect:test', 'casperjs:drawing', 'casperjs:integration']);
 
-  grunt.registerTask('test', ['test-travis']);
-  grunt.registerTask('precommit', ['test-local']);
+  // Used by optional precommit hook
+  grunt.registerTask('precommit', ['test']);
 
-  grunt.registerTask('build',  ['concat:js', 'concat:css', 'uglify', 'replace:main', 'replace:editor', 'copy']);
+  // BUILD TASKS
+  grunt.registerTask('build-index.html', ['includereplace']);
+  grunt.registerTask('merge-statics', ['concat:js', 'concat:css', 'uglify']);
+  grunt.registerTask('build',  ['clean:prod', 'sprite', 'merge-statics', 'build-index.html', 'replace:mainPartial', 'replace:css', 'copy:prod']);
+  grunt.registerTask('build-dev',  ['clean:dev', 'sprite', 'build-index.html', 'copy:dev']);
+  grunt.registerTask('desktop', ['clean:desktop', 'default', 'replace:desktop', 'nwjs:windows']);
+  grunt.registerTask('desktop-mac', ['clean:desktop', 'default', 'replace:desktop', 'nwjs:macos']);
 
-  // Validate & Build
-  grunt.registerTask('default', ['clean:before', 'lint', 'build']);
-
-  // Build stand alone app with nodewebkit
-  grunt.registerTask('desktop', ['default', 'nodewebkit']);
-
+  // SERVER TASKS
   // Start webserver and watch for changes
-  grunt.registerTask('serve', ['build', 'express:regular', 'open:regular', 'express-keepalive', 'watch']);
-
+  grunt.registerTask('serve', ['build', 'connect:prod', 'open:prod', 'watch:prod']);
   // Start webserver on src folder, in debug mode
-  grunt.registerTask('serve-debug', ['express:debug', 'open:debug', 'express-keepalive']);
-  grunt.registerTask('play', ['serve-debug']);
+  grunt.registerTask('play', ['build-dev', 'connect:dev', 'open:dev', 'watch:dev']);
+
+  // ALIASES, kept for backward compatibility
+  grunt.registerTask('serve-debug', ['play']);
+  grunt.registerTask('serve-dev', ['play']);
+  grunt.registerTask('test-travis', ['test']);
+  grunt.registerTask('test-local', ['test']);
+
+  // Default task
+  grunt.registerTask('default', ['lint', 'build']);
 };

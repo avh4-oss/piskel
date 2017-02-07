@@ -1,8 +1,8 @@
 (function () {
   var ns = $.namespace('pskl.model.frame');
 
-  // 10 * 60 * 1000 = 10 minutes
-  var DEFAULT_CLEAR_INTERVAL = 10 * 60 * 1000;
+  // Maximum number of cache entries
+  var MAX_CACHE_ENTRIES = 100;
 
   var DEFAULT_FRAME_PROCESSOR = function (frame) {
     return pskl.utils.FrameUtils.toImage(frame);
@@ -12,14 +12,16 @@
 
   var DEFAULT_NAMESPACE = '__cache_default__';
 
-  ns.CachedFrameProcessor = function (cacheResetInterval) {
+  ns.CachedFrameProcessor = function () {
+    // Cache object.
     this.cache_ = {};
-    this.cacheResetInterval = cacheResetInterval || DEFAULT_CLEAR_INTERVAL;
+
+    // Array of [namespace, key] for each cached frame.
+    this.cacheQueue_ = [];
+
     this.frameProcessor = DEFAULT_FRAME_PROCESSOR;
     this.outputCloner = DEFAULT_OUTPUT_CLONER;
     this.defaultNamespace = DEFAULT_NAMESPACE;
-
-    window.setInterval(this.clear.bind(this), this.cacheResetInterval);
   };
 
   ns.CachedFrameProcessor.prototype.clear = function () {
@@ -67,16 +69,15 @@
     if (cache[cacheKey]) {
       processedFrame = cache[cacheKey];
     } else {
-      var framePixels = JSON.stringify(frame.getPixels());
-      var frameAsString = pskl.utils.hashCode(framePixels);
-      if (cache[frameAsString]) {
-        processedFrame = this.outputCloner(cache[frameAsString], frame);
-      } else {
-        processedFrame = this.frameProcessor(frame);
-        cache[frameAsString] = processedFrame;
-      }
+      processedFrame = this.frameProcessor(frame);
       cache[cacheKey] = processedFrame;
+      this.cacheQueue_.unshift([namespace, cacheKey]);
+      if (this.cacheQueue_.length > MAX_CACHE_ENTRIES) {
+        var oldestItem = this.cacheQueue_.pop();
+        this.cache_[oldestItem[0]][oldestItem[1]] = null;
+      }
     }
+
     return processedFrame;
   };
 })();

@@ -3,48 +3,29 @@
 
   var URL_MAX_LENGTH = 30;
   var MAX_GIF_COLORS = 256;
-  var MAX_EXPORT_ZOOM = 20;
-  var DEFAULT_EXPORT_ZOOM = 10;
   var MAGIC_PINK = '#FF00FF';
+  var WHITE = '#FFFFFF';
 
-  ns.GifExportController = function (piskelController) {
+  ns.GifExportController = function (piskelController, exportController) {
     this.piskelController = piskelController;
+    this.exportController = exportController;
   };
 
   pskl.utils.inherit(ns.GifExportController, pskl.controller.settings.AbstractSettingController);
-
-  /**
-   * List of Resolutions applicable for Gif export
-   * @static
-   * @type {Array} array of Objects {zoom:{Number}, default:{Boolean}}
-   */
-  ns.GifExportController.RESOLUTIONS = [];
-  for (var i = 1 ; i <= MAX_EXPORT_ZOOM ; i++) {
-    ns.GifExportController.RESOLUTIONS.push({
-      zoom : i
-    });
-  }
 
   ns.GifExportController.prototype.init = function () {
 
     this.uploadStatusContainerEl = document.querySelector('.gif-upload-status');
     this.previewContainerEl = document.querySelector('.gif-export-preview');
-    this.widthInput = document.querySelector('.export-gif-resize-width');
-    this.heightInput = document.querySelector('.export-gif-resize-height');
     this.uploadButton = document.querySelector('.gif-upload-button');
     this.downloadButton = document.querySelector('.gif-download-button');
-
-    this.sizeInputWidget = new pskl.widgets.SizeInput(
-      this.widthInput, this.heightInput,
-      this.piskelController.getWidth(), this.piskelController.getHeight());
 
     this.addEventListener(this.uploadButton, 'click', this.onUploadButtonClick_);
     this.addEventListener(this.downloadButton, 'click', this.onDownloadButtonClick_);
   };
 
-  ns.GifExportController.prototype.destroy = function () {
-    this.sizeInputWidget.destroy();
-    this.superclass.destroy.call(this);
+  ns.GifExportController.prototype.getZoom_ = function () {
+    return this.exportController.getExportZoom();
   };
 
   ns.GifExportController.prototype.onUploadButtonClick_ = function (evt) {
@@ -94,33 +75,50 @@
   };
 
   ns.GifExportController.prototype.updatePreview_ = function (src) {
-    this.previewContainerEl.innerHTML = '<div><img style="max-width:32px;"src="' + src + '"/></div>';
-  };
-
-  ns.GifExportController.prototype.getZoom_ = function () {
-    return parseInt(this.widthInput.value, 10) / this.piskelController.getWidth();
+    this.previewContainerEl.innerHTML = '<div><img style="max-width:32px;" src="' + src + '"/></div>';
   };
 
   ns.GifExportController.prototype.renderAsImageDataAnimatedGIF = function(zoom, fps, cb) {
     var currentColors = pskl.app.currentColorsService.getCurrentColors();
 
-    var preserveColors = currentColors.length < MAX_GIF_COLORS;
-    var transparentColor = this.getTransparentColor(currentColors);
+    var layers = this.piskelController.getLayers();
+    var isTransparent = layers.some(function (l) {return l.isTransparent();});
+    var preserveColors = !isTransparent && currentColors.length < MAX_GIF_COLORS;
+
+    var transparentColor, transparent;
+    // transparency only supported if preserveColors is true, see Issue #357
+    if (preserveColors) {
+      transparentColor = this.getTransparentColor(currentColors);
+      transparent = parseInt(transparentColor.substring(1), 16);
+    } else {
+      transparentColor = WHITE;
+      transparent = null;
+    }
+
+    var width = this.piskelController.getWidth();
+    var height = this.piskelController.getHeight();
 
     var gif = new window.GIF({
       workers: 5,
       quality: 1,
-      width: this.piskelController.getWidth() * zoom,
-      height: this.piskelController.getHeight() * zoom,
+      width: width * zoom,
+      height: height * zoom,
       preserveColors : preserveColors,
-      transparent : parseInt(transparentColor.substring(1), 16)
+      transparent : transparent
     });
 
+    // Create a background canvas that will be filled with the transparent color before each render.
+    var background = pskl.utils.CanvasUtils.createCanvas(width, height);
+    var context = background.getContext('2d');
+    context.fillStyle = transparentColor;
+
     for (var i = 0 ; i < this.piskelController.getFrameCount() ; i++) {
-      var frame = this.piskelController.getFrameAt(i);
-      var canvasRenderer = new pskl.rendering.CanvasRenderer(frame, zoom);
-      canvasRenderer.drawTransparentAs(transparentColor);
-      var canvas = canvasRenderer.render();
+      var render = this.piskelController.renderFrameAt(i, true);
+      context.clearRect(0, 0, width, height);
+      context.fillRect(0, 0, width, height);
+      context.drawImage(render, 0, 0, width, height);
+
+      var canvas = pskl.utils.ImageResizer.scale(background, zoom);
       gif.addFrame(canvas.getContext('2d'), {
         delay: 1000 / fps
       });
@@ -150,10 +148,9 @@
     return transparentColor;
   };
 
-  // FIXME : JD : HORRIBLE COPY/PASTA (JD later : where???)
   ns.GifExportController.prototype.updateStatus_ = function (imageUrl, error) {
     if (imageUrl) {
-      var linkTpl = '<a class="image-link" href="{{link}}" target="_blank">{{shortLink}}</a>';
+      var linkTpl = '<a class="highlight" href="{{link}}" target="_blank">{{shortLink}}</a>';
       var linkHtml = pskl.utils.Template.replace(linkTpl, {
         link : imageUrl,
         shortLink : this.shorten_(imageUrl, URL_MAX_LENGTH, '...')

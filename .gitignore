@@ -12,6 +12,9 @@ cache
 *.sublime-project
 *.sublime-workspace
 
+# netbeans project folder
+nbproject
+
 # git stackdumps
 *.stackdump
 
@@ -22,6 +25,11 @@ diff.txt
 # build destination
 dest
 build/closure/closure_compiled_binary.js
+
+# spriting artifacts
+src/img/icons.png
+src/img/icons@2x.png
+src/css/icons.css
 
 # plato report directory
 report

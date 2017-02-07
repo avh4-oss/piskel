@@ -20,11 +20,28 @@
     this.resizeContentCheckbox = this.container.querySelector('.resize-content-checkbox');
     this.maintainRatioCheckbox = this.container.querySelector('.resize-ratio-checkbox');
 
-    var initWidth = this.piskelController.getWidth();
-    var initHeight = this.piskelController.getHeight();
-    this.sizeInputWidget = new pskl.widgets.SizeInput(this.widthInput, this.heightInput, initWidth, initHeight);
+    this.sizeInputWidget = new pskl.widgets.SizeInput({
+      widthInput: this.widthInput,
+      heightInput: this.heightInput,
+      initWidth: this.piskelController.getWidth(),
+      initHeight: this.piskelController.getHeight(),
+    });
 
-    this.anchorWidget.setOrigin(ns.AnchorWidget.ORIGIN.TOPLEFT);
+    var settings = pskl.UserSettings.get('RESIZE_SETTINGS');
+    var origin = ns.AnchorWidget.ORIGIN[settings.origin] || ns.AnchorWidget.ORIGIN.TOPLEFT;
+    this.anchorWidget.setOrigin(origin);
+
+    if (settings.resizeContent) {
+      this.resizeContentCheckbox.checked = true;
+      this.anchorWidget.disable();
+    }
+
+    if (settings.maintainRatio) {
+      this.maintainRatioCheckbox.checked = true;
+    } else {
+      // the SizeInput widget is enabled by default
+      this.sizeInputWidget.disableSync();
+    }
 
     this.addEventListener(this.resizeForm, 'submit', this.onResizeFormSubmit_);
     this.addEventListener(this.resizeContentCheckbox, 'change', this.onResizeContentChange_);
@@ -34,6 +51,8 @@
   };
 
   ns.ResizeController.prototype.destroy = function () {
+    this.updateUserPreferences_();
+
     this.anchorWidget.destroy();
     this.sizeInputWidget.destroy();
     this.superclass.destroy.call(this);
@@ -44,18 +63,23 @@
 
     var resizedLayers = this.piskelController.getLayers().map(this.resizeLayer_.bind(this));
 
-    var piskel = pskl.model.Piskel.fromLayers(resizedLayers, this.piskelController.getPiskel().getDescriptor());
-
+    var currentPiskel = this.piskelController.getPiskel();
+    var fps = this.piskelController.getFPS();
+    var piskel = pskl.model.Piskel.fromLayers(resizedLayers, fps, currentPiskel.getDescriptor());
     // propagate savepath to new Piskel
-    piskel.savePath = pskl.app.piskelController.getSavePath();
+    piskel.savePath = currentPiskel.savePath;
+
     pskl.app.piskelController.setPiskel(piskel, true);
 
     $.publish(Events.CLOSE_SETTINGS_DRAWER);
   };
 
   ns.ResizeController.prototype.resizeLayer_ = function (layer) {
+    var opacity = layer.getOpacity();
     var resizedFrames = layer.getFrames().map(this.resizeFrame_.bind(this));
-    return pskl.model.Layer.fromFrames(layer.getName(), resizedFrames);
+    var resizedLayer = pskl.model.Layer.fromFrames(layer.getName(), resizedFrames);
+    resizedLayer.setOpacity(opacity);
+    return resizedLayer;
   };
 
   ns.ResizeController.prototype.onResizeContentChange_ = function (evt) {
@@ -74,6 +98,14 @@
     } else {
       this.sizeInputWidget.disableSync();
     }
+  };
+
+  ns.ResizeController.prototype.updateUserPreferences_ = function () {
+    pskl.UserSettings.set('RESIZE_SETTINGS', {
+      origin : this.anchorWidget.getOrigin(),
+      resizeContent : !!this.resizeContentCheckbox.checked,
+      maintainRatio : !!this.maintainRatioCheckbox.checked
+    });
   };
 
   /***********************/

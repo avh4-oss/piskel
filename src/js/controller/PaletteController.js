@@ -1,20 +1,22 @@
 (function () {
   var ns = $.namespace('pskl.controller');
 
-  ns.PaletteController = function () {
-    this.primaryColor =  Constants.DEFAULT_PEN_COLOR;
-    this.secondaryColor =  Constants.TRANSPARENT_COLOR;
-  };
+  /**
+   * The PaletteController is responsible for handling the two color picker
+   * widgets found in the left column, below the tools.
+   */
+  ns.PaletteController = function () {};
 
   /**
    * @public
    */
   ns.PaletteController.prototype.init = function() {
-    $.subscribe(Events.SELECT_PRIMARY_COLOR, this.onColorSelected_.bind(this, {isPrimary:true}));
-    $.subscribe(Events.SELECT_SECONDARY_COLOR, this.onColorSelected_.bind(this, {isPrimary:false}));
+    $.subscribe(Events.SELECT_PRIMARY_COLOR, this.onColorSelected_.bind(this, {isPrimary : true}));
+    $.subscribe(Events.SELECT_SECONDARY_COLOR, this.onColorSelected_.bind(this, {isPrimary : false}));
 
-    pskl.app.shortcutService.addShortcut('X', this.swapColors.bind(this));
-    pskl.app.shortcutService.addShortcut('D', this.resetColors.bind(this));
+    var shortcuts = pskl.service.keyboard.Shortcuts;
+    pskl.app.shortcutService.registerShortcut(shortcuts.COLOR.SWAP, this.swapColors.bind(this));
+    pskl.app.shortcutService.registerShortcut(shortcuts.COLOR.RESET, this.resetColors.bind(this));
 
     var spectrumCfg = {
       showPalette: true,
@@ -41,7 +43,7 @@
     secondaryColorPicker.change({isPrimary : false}, $.proxy(this.onPickerChange_, this));
     this.setTitleOnPicker_(Constants.TRANSPARENT_COLOR, secondaryColorPicker);
 
-    var swapColorsIcon = $('.swap-colors-icon');
+    var swapColorsIcon = $('.swap-colors-button');
     swapColorsIcon.click(this.swapColors.bind(this));
   };
 
@@ -50,10 +52,18 @@
    */
   ns.PaletteController.prototype.onPickerChange_ = function(evt, isPrimary) {
     var inputPicker = $(evt.target);
+    var color = inputPicker.val();
+
+    if (color != Constants.TRANSPARENT_COLOR) {
+      // Unless the color is TRANSPARENT_COLOR, format it to hexstring, as
+      // expected by the rest of the application.
+      color = window.tinycolor(color).toHexString();
+    }
+
     if (evt.data.isPrimary) {
-      this.setPrimaryColor(inputPicker.val());
+      this.setPrimaryColor_(color);
     } else {
-      this.setSecondaryColor(inputPicker.val());
+      this.setSecondaryColor_(color);
     }
   };
 
@@ -63,41 +73,31 @@
   ns.PaletteController.prototype.onColorSelected_ = function(args, evt, color) {
     var inputPicker = $(evt.target);
     if (args.isPrimary) {
-      this.setPrimaryColor(color);
+      this.setPrimaryColor_(color);
     } else {
-      this.setSecondaryColor(color);
+      this.setSecondaryColor_(color);
     }
   };
 
-  ns.PaletteController.prototype.setPrimaryColor = function (color) {
-    this.primaryColor = color;
+  ns.PaletteController.prototype.setPrimaryColor_ = function (color) {
     this.updateColorPicker_(color, $('#color-picker'));
     $.publish(Events.PRIMARY_COLOR_SELECTED, [color]);
   };
 
-  ns.PaletteController.prototype.setSecondaryColor = function (color) {
-    this.secondaryColor = color;
+  ns.PaletteController.prototype.setSecondaryColor_ = function (color) {
     this.updateColorPicker_(color, $('#secondary-color-picker'));
     $.publish(Events.SECONDARY_COLOR_SELECTED, [color]);
   };
 
-  ns.PaletteController.prototype.getPrimaryColor = function () {
-    return this.primaryColor;
-  };
-
-  ns.PaletteController.prototype.getSecondaryColor = function () {
-    return this.secondaryColor;
-  };
-
   ns.PaletteController.prototype.swapColors = function () {
-    var primaryColor = this.getPrimaryColor();
-    this.setPrimaryColor(this.getSecondaryColor());
-    this.setSecondaryColor(primaryColor);
+    var primaryColor = pskl.app.selectedColorsService.getPrimaryColor();
+    this.setPrimaryColor_(pskl.app.selectedColorsService.getSecondaryColor());
+    this.setSecondaryColor_(primaryColor);
   };
 
   ns.PaletteController.prototype.resetColors = function () {
-    this.setPrimaryColor(Constants.DEFAULT_PEN_COLOR);
-    this.setSecondaryColor(Constants.TRANSPARENT_COLOR);
+    this.setPrimaryColor_(Constants.DEFAULT_PEN_COLOR);
+    this.setSecondaryColor_(Constants.TRANSPARENT_COLOR);
   };
 
   /**
@@ -123,7 +123,8 @@
   };
 
   ns.PaletteController.prototype.setTitleOnPicker_ = function (title, colorPicker) {
-    var spectrumInputSelector = '.sp-replacer';
-    colorPicker.next(spectrumInputSelector).attr('title', title);
+    var parent = colorPicker.parent();
+    title = parent.data('initial-title') + '<br/>' + title;
+    parent.attr('data-original-title', title);
   };
 })();

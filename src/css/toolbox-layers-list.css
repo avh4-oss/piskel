@@ -3,17 +3,18 @@
  * Layers container
  */
 .layers-list-container {
+  min-height: 85px;
+  display: flex;
+  flex-direction: column;
 }
 
-/*.layers-title {
-  background-image: url('../img/layers.svg');
-  background-size: 22px;
-  background-repeat: no-repeat;
-  background-position: 97%;
-}*/
+/**
+ * Layers title and toggle preview
+ */
 
 .layers-title {
   position: relative;
+  flex-shrink: 0;
 }
 
 .layers-toggle-preview {
@@ -34,34 +35,12 @@
 
 .layers-toggle-preview-enabled,
 .layers-toggle-preview-enabled:hover {
-  color : gold;
+  color : var(--highlight-color);
 }
 
-.layers-list {
-  font-size : 12px;
-}
-
-.layer-item {
-  height:24px;
-  line-height: 24px;
-  padding : 0 0 0 10px;
-  border-top: 1px solid #444;
-  cursor : pointer;
-}
-
-.layer-item:hover {
-  background : #222;
-}
-
-.current-layer-item,
-.current-layer-item:hover {
-  background : #333;
-  color: gold;
-}
-
-.layers-button-container {
-  overflow : hidden;
-}
+/**
+ * Layers buttons
+ */
 
 .layers-button {
   margin: 0;
@@ -69,11 +48,45 @@
   float : left;
 }
 
-/* @override */
-.layers-button-container .layers-button {
-  border-left-width: 0;
+/**
+ * Layers list
+ */
+
+.layers-list {
+  font-size : 12px;
+  overflow: auto;
 }
 
-.layers-button:last-child {
-  border-right-width: 0;
+.layer-item {
+  position: relative;
+  display: flex;
+  height:24px;
+  line-height: 24px;
+  border-top: 1px solid #444;
+  cursor: pointer;
+}
+
+.layer-item .layer-name {
+  padding: 0 0 0 10px;
+  flex: 1 auto;
+  white-space: nowrap;
+}
+
+.layer-item .layer-name.overflowing-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.layer-item:hover {
+  background : #222;
+}
+
+.layer-item-opacity {
+  padding-right: 8px;
+}
+
+.current-layer-item,
+.current-layer-item:hover {
+  background : #333;
+  color: var(--highlight-color);
 }

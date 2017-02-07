@@ -35,15 +35,16 @@
     return this.piskel.getWidth();
   };
 
-  /**
-   * TODO : this should be removed
-   * FPS should be stored in the Piskel model and not in the
-   * previewController
-   * Then piskelController should be able to return this information
-   * @return {Number} Frames per second for the current animation
-   */
   ns.PiskelController.prototype.getFPS = function () {
-    return pskl.app.previewController.getFPS();
+    return this.piskel.fps;
+  };
+
+  ns.PiskelController.prototype.setFPS = function (fps) {
+    if (typeof fps !== 'number') {
+      return;
+    }
+    this.piskel.fps = fps;
+    $.publish(Events.FPS_CHANGED);
   };
 
   ns.PiskelController.prototype.getLayers = function () {
@@ -90,17 +91,14 @@
     return this.piskel;
   };
 
-  ns.PiskelController.prototype.getFrameAt = function (index) {
-    var hash = [];
-    var frames = this.getLayers().map(function (l) {
-      var frame = l.getFrameAt(index);
-      hash.push(frame.getHash());
-      return frame;
+  ns.PiskelController.prototype.isTransparent = function () {
+    return this.getLayers().some(function (l) {
+      return l.isTransparent();
     });
-    var mergedFrame = pskl.utils.FrameUtils.merge(frames);
-    mergedFrame.id = hash.join('-');
-    mergedFrame.version = 0;
-    return mergedFrame;
+  };
+
+  ns.PiskelController.prototype.renderFrameAt = function (index, preserveOpacity) {
+    return pskl.utils.LayerUtils.flattenFrameAt(this.getLayers(), index, preserveOpacity);
   };
 
   ns.PiskelController.prototype.hasFrameAt = function (index) {
@@ -205,6 +203,13 @@
     }
   };
 
+  ns.PiskelController.prototype.setLayerOpacityAt = function (index, opacity) {
+    var layer = this.getLayerByIndex(index);
+    if (layer) {
+      layer.setOpacity(opacity);
+    }
+  };
+
   ns.PiskelController.prototype.mergeDownLayerAt = function (index) {
     var layer = this.getLayerByIndex(index);
     var downLayer = this.getLayerByIndex(index - 1);
@@ -265,16 +270,20 @@
   };
 
   ns.PiskelController.prototype.removeLayerAt = function (index) {
-    if (this.getLayers().length > 1) {
-      var layer = this.getLayerAt(index);
-      if (layer) {
-        this.piskel.removeLayer(layer);
-        this.setCurrentLayerIndex(0);
-      }
+    if (!this.hasLayerAt(index)) {
+      return;
+    }
+
+    var layer = this.getLayerAt(index);
+    this.piskel.removeLayer(layer);
+
+    // Update the selected layer if needed.
+    if (this.getCurrentLayerIndex() === index) {
+      this.setCurrentLayerIndex(Math.max(0, index - 1));
     }
   };
 
-  ns.PiskelController.prototype.serialize = function (expanded) {
-    return pskl.utils.Serializer.serializePiskel(this.piskel, expanded);
+  ns.PiskelController.prototype.serialize = function () {
+    return pskl.utils.serialization.Serializer.serialize(this.piskel);
   };
 })();

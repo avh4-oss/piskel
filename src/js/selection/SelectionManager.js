@@ -17,12 +17,16 @@
     $.subscribe(Events.SELECTION_CREATED, $.proxy(this.onSelectionCreated_, this));
     $.subscribe(Events.SELECTION_DISMISSED, $.proxy(this.onSelectionDismissed_, this));
     $.subscribe(Events.SELECTION_MOVE_REQUEST, $.proxy(this.onSelectionMoved_, this));
+    $.subscribe(Events.SELECTION_COPY, this.copy.bind(this));
+    $.subscribe(Events.SELECTION_CUT, this.cut.bind(this));
+    $.subscribe(Events.SELECTION_PASTE, this.paste.bind(this));
 
-    pskl.app.shortcutService.addShortcut('ctrl+V', this.paste.bind(this));
-    pskl.app.shortcutService.addShortcut('ctrl+X', this.cut.bind(this));
-    pskl.app.shortcutService.addShortcut('ctrl+C', this.copy.bind(this));
-    pskl.app.shortcutService.addShortcut('del', this.erase.bind(this));
-    pskl.app.shortcutService.addShortcut('back', this.onBackPressed_.bind(this));
+    var shortcuts = pskl.service.keyboard.Shortcuts;
+    pskl.app.shortcutService.registerShortcut(shortcuts.SELECTION.PASTE, this.paste.bind(this));
+    pskl.app.shortcutService.registerShortcut(shortcuts.SELECTION.CUT, this.cut.bind(this));
+    pskl.app.shortcutService.registerShortcut(shortcuts.SELECTION.COPY, this.copy.bind(this));
+    pskl.app.shortcutService.registerShortcut(shortcuts.SELECTION.DELETE, this.onDeleteShortcut_.bind(this));
+    pskl.app.shortcutService.registerShortcut(shortcuts.SELECTION.COMMIT, this.commit.bind(this));
 
     $.subscribe(Events.TOOL_SELECTED, $.proxy(this.onToolSelected_, this));
   };
@@ -41,7 +45,7 @@
    * @private
    */
   ns.SelectionManager.prototype.onToolSelected_ = function(evt, tool) {
-    var isSelectionTool = tool instanceof pskl.tools.drawing.BaseSelect;
+    var isSelectionTool = tool instanceof pskl.tools.drawing.selection.BaseSelect;
     if (!isSelectionTool) {
       this.cleanSelection_();
     }
@@ -54,7 +58,7 @@
     this.cleanSelection_();
   };
 
-  ns.SelectionManager.prototype.onBackPressed_ = function(evt) {
+  ns.SelectionManager.prototype.onDeleteShortcut_ = function(evt) {
     if (this.currentSelection) {
       this.erase();
     } else {
@@ -88,21 +92,18 @@
   };
 
   ns.SelectionManager.prototype.paste = function() {
-    if (this.currentSelection && this.currentSelection.hasPastedContent) {
-      var pixels = this.currentSelection.pixels;
-      var opaquePixels = pixels.filter(function (p) {
-        return p.color !== Constants.TRANSPARENT_COLOR;
-      });
-      this.pastePixels(opaquePixels);
+    if (!this.currentSelection || !this.currentSelection.hasPastedContent) {
+      if (window.localStorage.getItem('piskel.clipboard')) {
+        this.currentSelection = JSON.parse(window.localStorage.getItem('piskel.clipboard'));
+      } else {
+        return;
+      }
     }
-  };
 
-  ns.SelectionManager.prototype.pastePixels = function(pixels) {
-    var currentFrame = this.piskelController.getCurrentFrame();
+    var pixels = this.currentSelection.pixels;
+    var frame = this.piskelController.getCurrentFrame();
 
-    pixels.forEach(function (pixel) {
-      currentFrame.setPixel(pixel.col, pixel.row, pixel.color);
-    });
+    this.pastePixels_(frame, pixels);
 
     $.publish(Events.PISKEL_SAVE_STATE, {
       type : pskl.service.HistoryService.REPLAY,
@@ -114,17 +115,42 @@
     });
   };
 
+  /**
+   * If the currently selected tool is a selection tool, call commitSelection handler on
+   * the current tool instance.
+   */
+  ns.SelectionManager.prototype.commit = function() {
+    var tool = pskl.app.drawingController.currentToolBehavior;
+    var isSelectionTool = tool instanceof pskl.tools.drawing.selection.BaseSelect;
+    if (isSelectionTool) {
+      var overlay = pskl.app.drawingController.overlayFrame;
+      tool.commitSelection(overlay);
+    }
+  };
+
   ns.SelectionManager.prototype.replay = function (frame, replayData) {
-    var pixels = replayData.pixels;
+    if (replayData.type === SELECTION_REPLAY.PASTE) {
+      this.pastePixels_(frame, replayData.pixels);
+    } else if (replayData.type === SELECTION_REPLAY.ERASE) {
+      replayData.pixels.forEach(function (pixel) {
+        frame.setPixel(pixel.col, pixel.row, Constants.TRANSPARENT_COLOR);
+      });
+    }
+  };
+
+  ns.SelectionManager.prototype.pastePixels_ = function(frame, pixels) {
     pixels.forEach(function (pixel) {
-      var color = replayData.type === SELECTION_REPLAY.PASTE ? pixel.color : Constants.TRANSPARENT_COLOR;
-      frame.setPixel(pixel.col, pixel.row, color);
+      if (pixel.color === Constants.TRANSPARENT_COLOR || pixel.color === null) {
+        return;
+      }
+      frame.setPixel(pixel.col, pixel.row, pixel.color);
     });
   };
 
   ns.SelectionManager.prototype.copy = function() {
     if (this.currentSelection && this.piskelController.getCurrentFrame()) {
       this.currentSelection.fillSelectionFromFrame(this.piskelController.getCurrentFrame());
+      window.localStorage.setItem('piskel.clipboard', JSON.stringify(this.currentSelection));
     }
   };
 
